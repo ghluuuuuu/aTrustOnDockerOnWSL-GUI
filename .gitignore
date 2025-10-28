@@ -1,0 +1,40 @@
+﻿# User-specific files
+*.suo
+*.user
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+[Bb]in/
+[Oo]bj/
+
+# NuGet Packages
+*.nupkg
+**/packages/*
+# Except build/, which is used as an MSBuild target
+!**/packages/build/
+# Uncomment if necessary; generally, it will be regenerated when needed.
+#!**/packages/repositories.config
+
+# Visual Studio temporary files
+.vs/
+*.pdb
+*.ilk
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlog
+*.log
+*.tmp
+*.bak
+*.cache
+*.obj
+*.pch
+*.ipch
+
+# Other generated files
+TestResults/
+BuildLog.*
