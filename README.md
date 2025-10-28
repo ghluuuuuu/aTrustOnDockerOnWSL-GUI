@@ -1,4 +1,4 @@
-# aTrustOnWsl
+# aTrustOnDockerOnWSL-GUI
 
 一个在 Windows 上通过 WSL Docker 运行 aTrust 客户端的图形界面应用程序。
 
