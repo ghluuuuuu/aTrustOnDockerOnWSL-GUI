@@ -4,7 +4,6 @@ using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using VncSharp;
 
 namespace aTrustOnWsl
 {
@@ -13,13 +12,9 @@ namespace aTrustOnWsl
         private NotifyIcon trayIcon;
         private ContextMenuStrip trayMenu;
         private TabControl tabControl;
-        private TabPage vncTabPage;
         private TabPage logTabPage;
-        private Panel vncPanel;
         private TextBox logTextBox = new TextBox();
         private Process dockerProcess;
-        private Timer timer = new Timer();
-        private bool vncStart = false;
         private bool isNeedClosed = false;
 
         public Form1()
@@ -53,61 +48,13 @@ namespace aTrustOnWsl
             tabControl = new TabControl();
             tabControl.Dock = DockStyle.Fill;
 
-            // VNC Tab
-            vncTabPage = new TabPage("VNC 连接");
-            SetupVNCTab();
-
             // Log Tab
             logTabPage = new TabPage("运行日志");
             SetupLogTab();
 
-            tabControl.TabPages.Add(vncTabPage);
             tabControl.TabPages.Add(logTabPage);
 
             this.Controls.Add(tabControl);
-        }
-
-        private void SetupVNCTab()
-        {
-            vncPanel = new Panel();
-            vncPanel.Dock = DockStyle.Fill;
-            var remoteDesktop = new RemoteDesktop();
-            remoteDesktop.VncPort = 35901;
-            remoteDesktop.GetPassword = () => "sk19dj1fl1dj1ddfnm";
-            remoteDesktop.ConnectionLost += (sender, e) =>
-            {
-                AppendLog("VNC连接已断开\r\n");
-                this.isNeedClosed = true;
-                this.Close();
-            };
-            remoteDesktop.ConnectComplete += (sender, e) =>
-            {
-                AppendLog("VNC连接已建立\r\n");
-                vncStart = true;
-            };
-            timer.Interval = 1000;
-            timer.Tick += (object sender, EventArgs e) =>
-            {
-                if(!vncStart)
-                    return;
-                if (!remoteDesktop.IsDisposed&&!remoteDesktop.IsConnected)
-                {
-                    try
-                    {
-                        remoteDesktop.Connect("127.0.0.1", false, true);
-                    }
-                    catch (Exception ee)
-                    {
-                        AppendLog(ee.Message);
-                    }
-                }
-                if(remoteDesktop.IsDisposed)
-                    timer.Stop();
-            };
-            timer.Start();
-            remoteDesktop.Dock = DockStyle.Fill;
-            vncPanel.Controls.Add(remoteDesktop);
-            vncTabPage.Controls.Add(vncPanel);
         }
 
         private void SetupLogTab()
@@ -118,7 +65,6 @@ namespace aTrustOnWsl
             logTextBox.ReadOnly = true;
             logTextBox.BackColor = Color.Black;
             logTextBox.ForeColor = Color.White;
-
 
             logTabPage.Controls.Add(logTextBox);
         }
@@ -150,7 +96,7 @@ namespace aTrustOnWsl
                     StartInfo = new ProcessStartInfo
                     {
                         FileName = "wsl",
-                        Arguments = "-u root --exec docker run --rm --name atrust --device /dev/net/tun --cap-add NET_ADMIN -i -e PASSWORD=sk19dj1fl1dj1ddfnm -e URLWIN=1 -v /root/.atrust-data:/root -v /root/.atrust-data/usr/share/sangfor/.aTrust:/usr/share/sangfor/.aTrust -p 127.0.0.1:35901:5901 -p 127.0.0.1:31080:1080 -p 127.0.0.1:8888:8888 -p 127.0.0.1:54631:54631 --sysctl net.ipv4.conf.default.route_localnet=1 hagb/docker-atrust",
+                        Arguments = "-u root --exec docker run --rm --name atrust --device /dev/net/tun --cap-add NET_ADMIN -i -e PASSWORD=sk19dj1fl1dj1ddfnm -e URLWIN=1 -e DISPLAY=:0 -v /tmp/.X11-unix:/tmp/.X11-unix -v /root/.atrust-data:/root -v /root/.atrust-data/usr/share/sangfor/.aTrust:/usr/share/sangfor/.aTrust -p 127.0.0.1:35901:5901 -p 127.0.0.1:31080:1080 -p 127.0.0.1:8888:8888 -p 127.0.0.1:54631:54631 --sysctl net.ipv4.conf.default.route_localnet=1 hagb/docker-atrust:vncless",
                         UseShellExecute = false,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
@@ -190,10 +136,6 @@ namespace aTrustOnWsl
         {
             if (logTextBox == null || logTextBox.IsDisposed)
                 return;
-            if (message.Contains("aTrust"))
-            {
-                vncStart = true;
-            }
             if (logTextBox.InvokeRequired)
             {
                 logTextBox.Invoke(new Action<string>(AppendLog), message + "\n\r");
@@ -221,7 +163,7 @@ namespace aTrustOnWsl
 
         private void TrayRestore_Click(object sender, EventArgs e)
         {
-            RestoreFromTray();
+            ShowMainWindow();
         }
 
         private void TrayExit_Click(object sender, EventArgs e)
@@ -230,16 +172,35 @@ namespace aTrustOnWsl
             ExitApplication();
         }
 
-        private void RestoreFromTray()
+        private void ShowMainWindow()
         {
-            //trayIcon.Visible = false;
-            this.Show();
-            this.WindowState = FormWindowState.Normal;
+            // 托盘图标被点击时，执行命令激活软件界面
+            try
+            {
+                var process = new Process()
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "wsl",
+                        Arguments = "-u root --exec docker exec -it atrust /usr/share/sangfor/aTrust/aTrustTray --no-sandbox",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = false,
+                        RedirectStandardError = false,
+                        RedirectStandardInput = false,
+                        CreateNoWindow = true
+                    }
+                };
+                process.Start();
+                process.Dispose();
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"执行命令失败: {ex.Message}\n");
+            }
         }
 
         private void ExitApplication()
         {
-
             var stopProcess = new Process()
             {
                 StartInfo = new ProcessStartInfo
